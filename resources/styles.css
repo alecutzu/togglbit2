@@ -9,43 +9,29 @@
   x: 25%;
   y: 50%-5;
 }
-#circle {
-  fill: green;
-}
-#entry {
-  width: 100%;
-  y: 15%;
-  font-size: 24;
-  font-family: System-Regular;
-  font-weight: regular;
-  fill: green;
-  viewport-fill: blue;
-  text-length: 32;
-  x: 50%;
-  text-anchor: middle;
-}
-#status {
-  font-size: 32;
-  font-family: System-Regular;
+#entry-proj {
+  font-size: 34;
   font-weight: bold;
-  viewport-fill: green;
-  fill: #ffffff;
-  width: 100%;
-  text-length: 10;
+  text-length: 32;
+  text-anchor: end;
+}
+#entry-desc {
+  font-size: 24;
+  font-weight: bold;
+  text-length: 32;
+  text-anchor: end;
 }
 #duration {
-  text-length: 8;
   fill: #ffffff;
-  font-size: 16;
-  x: 50%;
-  text-anchor: middle;
+  font-size: 50;
+  text-anchor: end;
 }
 #play-rect {
   opacity: 0;
 }
 
 text {
-  text-length: 32;
+    text-length: 32;
 }
 
 .item-header     { x: 10; y: 0; width: 100%; height: 33%;}
@@ -90,11 +76,3 @@ text {
   display: none;
 }
 
-#notification {
-  font-size: 18;
-  text-anchor: middle;
-  x: 0;
-  y: 30%;
-  fill: "white";
-  text-length: 50;
-}

@@ -6,9 +6,13 @@
     "iconFile": "resources/icon.png",
     "wipeColor": "#03a9f4",
     "requestedPermissions": [
-      "access_internet"
+      "access_internet",
+      "access_activity",
+      "access_sleep",
+      "access_heart_rate"  
     ],
     "buildTargets": [
+      "mira",
       "higgs",
       "meson",
       "gemini"
@@ -21,7 +25,7 @@
     "defaultLanguage": "en-US"
   },
   "devDependencies": {
-    "@fitbit/sdk": "~4.0.0"
+    "@fitbit/sdk": "~4.2.0"
   },
   "dependencies": {
     "@fitbit/sdk-cli": "^1.7.0",

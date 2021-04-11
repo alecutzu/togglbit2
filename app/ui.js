@@ -1,7 +1,16 @@
 import document from "document";
 import clock from "clock";
+import { battery, charger } from "power";
+import { preferences } from "user-settings";
+import { today } from 'user-activity';
+import { sleep } from 'sleep';
+import { vibration } from "haptics";
+import { me } from "appbit";
+import { HeartRateSensor } from "heart-rate";
 
-clock.granularity = "seconds";
+clock.granularity = "minutes";
+// XXX configurable
+me.appTimeoutEnabled = false;
 
 var runningEntry = null;
 var durationLabel = null;
@@ -9,21 +18,21 @@ var lastTo = 0;
 
 const ENTRY_COUNT = 10;
 
-const secondsContainer = document.getElementById("arc-seconds");
-const secondsContainerBack = document.getElementById("arc-seconds-back");
-const secondsAnim = secondsContainer.getElementById("anim");
-const secondsArc = secondsContainer.getElementById("arc");
-
 const playIcon = document.getElementById("play-icon");
 const stopIcon = document.getElementById("stop-icon");
 
+const timeText = document.getElementById("time");
+const dateText = document.getElementById("date");
+const dowText = document.getElementById("dow");
+const battIcon = document.getElementById("batt");
+const logText  = document.getElementById("log");
+
 export function UI() {
-  this.status = document.getElementById("status");
   this.circle = document.getElementById("circle");
   this.rect = document.getElementById("play-rect");
-  this.entryLabel = document.getElementById("entry");
+  this.entryProj = document.getElementById("entry-proj");
+  this.entryDesc = document.getElementById("entry-desc");
   durationLabel = document.getElementById("duration");
-  this.entriesList = document.getElementById("entriesList");
   this.views = document.getElementById("views");
   this.todayLabel = document.getElementById("today-total");
   this.weekLabel = document.getElementById("week-total");
@@ -91,20 +100,25 @@ UI.prototype.updateTimer = function(data) {
   this.entry = data;
   if (!!data) {
     //Running entry
-    label = data.description || "(no description)";
+
+    this.entryProj.text = data.project;
+    this.entryDesc.text = data.description;
+
     if (!!data.project) {
-      label += " • " + data.project;
       color = data.c;
     }
-    this.entryLabel.style.fill = color;
-    console.log("Description - " + label);
-    this.entryLabel.text = label;
-    this.circle.style.fill = "#db1e1e";
+    
+    this.entryProj.style.fill = color;
+    this.entryDesc.style.fill = color;
+
+    this.circle.style.fill = "#ff897a";
     toggleRunning(true);
+    updateDuration();
   } else {
     durationLabel.text = "";
-    this.entryLabel.text = "";
-    this.circle.style.fill = "#228B22";
+    this.entryProj.text = "";
+    this.entryDesc.text = "";
+    this.circle.style.fill = "#e57cd8";
     toggleRunning(false);
     this.updateNotification("No Running Time entry.\nTap on play button to start");
   }
@@ -127,7 +141,7 @@ UI.prototype.updateRecentList = function(data) {
     tile.style.display = "inline";
     tile.getElementById("desc").text = entry.d;
     if (!!entry.p) {
-      tile.getElementById("proj").text = "• " + entry.p;
+      tile.getElementById("proj").text = entry.p;
       tile.getElementById("proj").style.fill = entry.c;
     }
   }
@@ -168,54 +182,146 @@ UI.prototype.updateSummary = function(data) {
 
 var toggleRunning = function(running) {
   if (running) {
-    secondsContainer.style.display = "inline";
-    secondsContainerBack.style.display = "inline";
+    durationLabel.style.display = "inline";
     playIcon.style.display = "none";
     stopIcon.style.display = "inline";
   } else {
-    secondsContainer.style.display = "none";
-    secondsContainerBack.style.display = "none";
+    durationLabel.style.display = "none";
     stopIcon.style.display = "none";
     playIcon.style.display = "inline";
   }
 }
 
 var updateDuration = function() {
-  //console.log("Calc duration");
-  let duration = new Date() - new Date(runningEntry.start);
-  let seconds = parseInt((duration / 1000) % 60, 10);
+  console.log("Calc duration");
+  let now = new Date();
+  let duration = now - new Date(runningEntry.start);
   let minutes = parseInt((duration / (1000 * 60)) % 60, 10);
   let hours = parseInt(duration / (1000 * 60 * 60), 10);
 
-  // circle animation
-  secondsAnim.to = calcArc(seconds, 60);
-  secondsAnim.from = lastTo;
-
-  if (secondsAnim.to == 0 && lastTo != 0) {
-    secondsAnim.to = 360;
-    lastTo = 0;
-  } else {
-    lastTo = secondsAnim.to;
-  }
-
-  //console.log(secondsAnim.from + " -> " + secondsAnim.to + " = " + seconds);
-  secondsContainer.animate("enable");
-
   hours = hours < 10 ? '0' + hours : hours;
   minutes = minutes < 10 ? '0' + minutes : minutes;
-  seconds = seconds < 10 ? '0' + seconds : seconds;
 
-  durationLabel.text = hours + ':' + minutes + ':' + seconds;
+  durationLabel.text = hours + ":" + minutes;
 }
 
-function calcArc(current, steps) {
-  let angle = (360 / steps) * current;
-  //console.log ("Angle: " + angle);
-  return angle > 360 ? 360 : angle;
+function zeroPad(i) {
+  if (i < 10) {
+    i = "0" + i;
+  }
+  return i;
 }
+
+function updateClock (evt) {
+  let today = evt.date;
+  let hours = today.getHours();
+  let suffix = "";
+  if (preferences.clockDisplay === "12h") {
+    // 12h format
+    if (hours > 12) {
+      suffix = "pm";
+    } else {
+      suffix = "am";
+    }
+    hours = hours % 12 || 12;
+  } else {
+    // 24h format
+    hours = zeroPad(hours);
+  }
+  let mins = zeroPad(today.getMinutes());
+  timeText.text = `${hours}:${mins}${suffix}`;
+
+  let day = today.getDate();
+  let month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+               "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][today.getMonth()];
+
+  let dow = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][today.getDay()];
+  
+  dateText.text = `${day} ${month}`;
+  dowText.text = `${dow}`
+
+  //logText.text = "appTimeoutEnabled: " + me.appTimeoutEnabled;
+}
+
+function updateBatt (evt) {
+  if (charger.connected) {
+    battIcon.href="images/batt_charging.png"
+  } else {
+    let charge = Math.ceil(battery.chargeLevel / 25) * 25;
+    battIcon.href = `images/batt_${charge}.png`;
+  }
+}
+
 
 clock.ontick = e => {
   if (!!runningEntry) {
     updateDuration();
   }
+  
+  updateClock(e);
+  updateBatt(e);
+}
+
+charger.onchange = (evt) => {
+  updateBatt(evt)
+}
+
+
+// XXX configurable
+if (sleep) {
+  console.log("Sleep detection is on");
+  sleep.onchange = () => {
+    console.log(`User sleep state is: ${sleep.state}`)
+    if (sleep.state == "asleep") {
+      vibration.start("nudge");
+    }
+  }
+}
+
+
+// XXX configurable
+if (HeartRateSensor) {
+  const hrm = new HeartRateSensor();
+  
+  let lastSteps = 0;
+  let lastTime = 0;
+  let lastHr = 0;
+  let counter = 2;
+
+  hrm.addEventListener("reading", () => {
+    let steps = today.local.steps;
+    let hr = hrm.heartRate;
+    let now = new Date();
+    
+    if (lastTime) {
+      if (steps > lastSteps) {
+        if (counter > 0) {
+          counter -= 1;
+          if (counter == 0)
+          {
+            vibration.start("bump");
+            vibration.stop();
+          }
+        } 
+      } else {
+        if (counter < 3)
+        {
+          counter += 1;
+
+          if (counter == 3) {
+            vibration.start("bump");
+            vibration.stop();
+          }
+        }
+      }
+    }
+
+    lastTime = now;
+    lastSteps = steps;
+    lastHr = hr;
+
+    console.log(`Steps ${steps} counter ${counter} hr ${hr}`);
+    
+  });
+  hrm.start();
 }
