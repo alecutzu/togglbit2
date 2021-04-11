@@ -1,8 +1,8 @@
 {
   "fitbit": {
-    "appUUID": "70dfd461-bbb7-42a6-968f-1a5a72076eb8",
+    "appUUID": "a8b8d73d-4cb4-4dc3-bce8-48dce03ec827",
     "appType": "app",
-    "appDisplayName": "TogglBit",
+    "appDisplayName": "TogglBit2",
     "iconFile": "resources/icon.png",
     "wipeColor": "#03a9f4",
     "requestedPermissions": [
@@ -19,7 +19,7 @@
     ],
     "i18n": {
       "en": {
-        "name": "TogglBit"
+        "name": "TogglBit2"
       }
     },
     "defaultLanguage": "en-US"
@@ -36,7 +36,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/toggl/togglbit.git"
+    "url": "https://github.com/alecutzu/togglbit2"
   },
   "license": "BSD-3-Clause"
 }

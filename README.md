@@ -18,7 +18,7 @@
 <br/>
 <br/>
 <br/>
-<img src="fitbit_screens_880.png" alt="TogglBit">
+<img src="img/screenshot_2.0.1_main.png" alt="TogglBit">
 <br/>
 <br/>
 <br/>
