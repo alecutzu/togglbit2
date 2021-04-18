@@ -70,4 +70,5 @@ messaging.peerSocket.onerror = function(err) {
   // Handle any errors
   //ui.updateUI("error");
   console.log("Connection error: " + err.code + " - " + err.message);
+  this.updateSyncStatus("error")
 }

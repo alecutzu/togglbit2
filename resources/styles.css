@@ -76,3 +76,10 @@ text {
   display: none;
 }
 
+
+.sync-status {
+    arc-width: 8;
+    stroke-linecap: "round";
+    stroke-width: 7;
+    fill: "white";
+}

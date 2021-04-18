@@ -27,6 +27,8 @@ const dowText = document.getElementById("dow");
 const battIcon = document.getElementById("batt");
 const logText  = document.getElementById("log");
 
+var hrm = null;
+
 export function UI() {
   this.circle = document.getElementById("circle");
   this.rect = document.getElementById("play-rect");
@@ -38,7 +40,10 @@ export function UI() {
   this.weekLabel = document.getElementById("week-total");
   this.syncButton = document.getElementById("sync-button");
   this.syncArc = document.getElementById("sync-arc");
+  this.syncStyle = document.getElementsByClassName("sync-status");
   this.notification = document.getElementById("notification");
+  this.notificationArea = document.getElementById("notification-area");
+
 
   this.timer = null;
   this.entry = null;
@@ -66,14 +71,19 @@ UI.prototype.updateUI = function(data) {
   if (data.type === "current-entry") {
     this.updateNotification(null);
     this.updateTimer(data.data);
+    this.updateSyncStatus("ok")
   } else if (data.type === "entry-stop") {
     this.updateTimer(null);
+    this.updateSyncStatus("ok")
   } else if (data.type === "unique") {
     this.updateRecentList(data.data);
+    this.updateSyncStatus("ok")
   } else if (data.type === "summary") {
     this.updateSummary(data.data);
+    this.updateSyncStatus("ok")
   } else if (data.type === "error") {
     this.updateNotification(data.data.message);
+    this.updateSyncStatus("error")
   }
 }
 
@@ -81,11 +91,18 @@ UI.prototype.updateNotification = function(message) {
   console.log("Update notification: " + message);
   this.notification.text = message;
   this.notification.style.display = !!message ? "inline": "none";
+  this.notificationArea.style.display = !!message ? "inline": "none";
 }
 
 UI.prototype.syncSpinner = function(index) {
   //console.log("sync");
   this.syncArc.animate("enable");
+}
+
+UI.prototype.updateSyncStatus = function(status) {
+  console.log(`Update sync status: ${status}`);
+  let color = status === "ok" ? "fb-green" : "fb-red";
+  this.syncStyle.forEach((el) => { el.style.fill = color });
 }
 
 UI.prototype.switchTo = function(index) {
@@ -190,6 +207,8 @@ var toggleRunning = function(running) {
     stopIcon.style.display = "none";
     playIcon.style.display = "inline";
   }
+  
+  hrmToggle(running);
 }
 
 var updateDuration = function() {
@@ -235,7 +254,7 @@ function updateClock (evt) {
   let month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][today.getMonth()];
 
-  let dow = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][today.getDay()];
+  let dow = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][today.getDay()];
   
   dateText.text = `${day} ${month}`;
   dowText.text = `${dow}`
@@ -281,7 +300,9 @@ if (sleep) {
 
 // XXX configurable
 if (HeartRateSensor) {
-  const hrm = new HeartRateSensor();
+  console.log("Heart rate and step monitoring is on");
+  
+  hrm = new HeartRateSensor();
   
   let lastSteps = 0;
   let lastTime = 0;
@@ -323,5 +344,16 @@ if (HeartRateSensor) {
     console.log(`Steps ${steps} counter ${counter} hr ${hr}`);
     
   });
-  hrm.start();
+} 
+
+function hrmToggle (on) {
+  console.log(`Toggle hrm: ${on}`);
+  if (!!hrm) {
+    if (on) {
+      hrm.start();
+    } else {
+      hrm.stop();
+    }
+  }
 }
+
