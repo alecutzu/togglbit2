@@ -3,9 +3,8 @@ import { Base64 } from "./base64.js"
 export function API(apiKey) {
 };
 
-let ApiUrl = "https://toggl.com/api/v8";
-let ApiUrlV9 = "https://toggl.com/api/v9";
-let UserData;
+let ApiUrl = "https://api.track.toggl.com/api/v9"
+let default_wid
 let CreatedWith = "TogglBit2";
 let credentials;
 let entryDescription = "";
@@ -21,12 +20,34 @@ API.prototype.setToken = function(token) {
   credentials = 'Basic ' + base64.encode(token + ':api_token');
 }
 
-API.prototype.fetchUser = function() {
-  let self = this;
-  //console.log("API - Fetch User Data");
-  return new Promise(function(resolve, reject) {
-    let url = ApiUrl + "/me?with_related_data=true";    
+function dump (o, d = {}, i = '') {
+  var r = ''
+  
+  if (typeof(o) == 'string')
+    r += `'${o}'`
+  else if (typeof(o) == 'number')
+    r += `${o}`
+  else
+  {
+    r += `${i} {\n`
+    for (const k in o) {
+      r += `${i}   ${k} : ${dump(o[k], d, i + '    ')}\n`
+    }
+    r += `${i} }\n`
+  }
 
+  return r
+}
+
+
+API.prototype.fetchUser = function(sub = "") {
+  let self = this;
+  console.log(`API: Fetch User Data: me${sub}`);
+  return new Promise(function(resolve, reject) {
+    let url = ApiUrl + "/me" + sub;
+
+    console.log(`API: URL is ${url}`);
+    
     var obj = {  
       method: 'GET',
       headers: {
@@ -34,27 +55,35 @@ API.prototype.fetchUser = function() {
         'Content-Type': 'application/json',
         'Authorization': credentials
     }};
+
+    //console.log(`Request is ${dump(obj)}`)
     
     fetch(url, obj)
+//      .then(r => {console.log(`Got ${dump(r)}`); return r; })
     .then(response => response.json())
     .then(data => {
-      UserData = data.data;
+      if (!!data && !!data.default_workspace_id)
+        default_wid = data.default_workspace_id
+      
       //console.log("Got JSON response from server:" + JSON.stringify(data));
       resolve(JSON.stringify(data));
     }).catch(function (error) {
+      console.log(`Error fetching ${url}:\n ${error}`);
       reject(error);
     });
   });
 }
 
+
 API.prototype.stopEntry = function(timeEntry) {
   let self = this;
-  //console.log("API - Stop Entry");
+  console.log("API - Stop Entry ");
   return new Promise(function(resolve, reject) {
-    let url = ApiUrlV9 + "/time_entries/" + timeEntry.id;
+    let url = ApiUrl + "/workspaces/" + default_wid + "/time_entries/" + timeEntry.id;
     const stopTime = new Date();
     const startTime = new Date(-timeEntry.duration * 1000);
     const entry = {
+      id : timeEntry.id,
       stop: stopTime.toISOString(),
       duration: Math.floor((stopTime - startTime) / 1000)
     };
@@ -69,12 +98,15 @@ API.prototype.stopEntry = function(timeEntry) {
       body: JSON.stringify(entry)
     }
 
+    //console.log(`API: url ${url} obj ${JSON.stringify(obj)}`);
+    
     fetch(url, obj)
     .then(response => response.json())
     .then(data => {
-//      console.log("STOPP Got JSON response from server:" + JSON.stringify(data));
+      //console.log("STOP Got JSON response from server:" + JSON.stringify(data));
       resolve(JSON.stringify(data));
     }).catch(function (error) {
+      console.log(`Error fetching ${url}:\n ${JSON.stringify(error)}`);
       reject(error);
     });
   });
@@ -85,7 +117,7 @@ API.prototype.startEntry = function(timeEntry) {
   let self = this;
   console.log("API - Start Entry");
   return new Promise(function(resolve, reject) {
-    let url = ApiUrlV9 + "/time_entries";
+    let url = ApiUrl + "/workspaces/" + default_wid + "/time_entries";
     const start = new Date();
     let entry;
 
@@ -97,7 +129,7 @@ API.prototype.startEntry = function(timeEntry) {
         description: timeEntry.description,
         pid: timeEntry.pid,
         tid: timeEntry.tid || null,
-        wid: timeEntry.wid || UserData.default_wid,
+        wid: timeEntry.wid || default_wid,
         tags: timeEntry.tags || null,
         billable: timeEntry.billable || false,
         created_with: CreatedWith
@@ -110,7 +142,7 @@ API.prototype.startEntry = function(timeEntry) {
         description: entryDescription,
         pid: null,
         tid: null,
-        wid: UserData.default_wid,
+        wid: default_wid,
         tags: null,
         billable: false,
         created_with: CreatedWith
@@ -126,13 +158,17 @@ API.prototype.startEntry = function(timeEntry) {
       },
       body: JSON.stringify(entry)
     };
+
+    //console.log(`API: url ${url} obj ${JSON.stringify(obj)}`);
     
     fetch(url, obj)
+    //.then(r => {console.log(`Got ${dump(r)}`); return r; })
     .then(response => response.json())
     .then(data => {
+      //console.log("START Got JSON response from server:" + JSON.stringify(data));
       resolve(JSON.stringify(data));
     }).catch(function (error) {
-      console.log(JSON.stringify(error))
+      console.log(`Error fetching ${url}:\n ${JSON.stringify(error)}`);
       reject(error);
     });
   });

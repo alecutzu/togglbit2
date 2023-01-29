@@ -4,7 +4,11 @@ import { API } from "./api.js"
 import { settingsStorage } from "settings";
 
 let Api = new API();
-let userData;
+let userData = {
+  info : null,
+  time_entries : [],
+  projects : [],
+}
 const apiError = "Sync error - please make sure you have set up Toggl API token in Fitbit mobile app";
 
 // Listen for the onopen event
@@ -34,134 +38,113 @@ messaging.peerSocket.onerror = function(err) {
   console.log("Connection error: " + err.code + " - " + err.message);
 }
 
+function sendToPeer (type, data, retries = 0) {
+  if (messaging.peerSocket.readyState === messaging.peerSocket.OPEN) {
+    messaging.peerSocket.send(JSON.stringify({ "type" : type,
+                                               "data" : data }))
+  } else if (retries > 0) {
+    setTimeout(function() { sendToPeer(type, data, retries - 1) },
+               100);
+  } else {
+    console.log(`Dropping ${type}, peer socket not ready.`)
+  }
+}
+
+function sendCurrentEntry (entry, retries = 0) {
+    if (!!entry) {
+      let projName = ''
+      let color = '#ffffff'
+      const proj = findById(entry.pid, userData.projects);
+      
+      if (!!proj) {
+        projName = proj.name
+        
+        if (!!proj.color)
+          color = proj.color
+      }
+      
+      sendToPeer("current-entry",
+                 {
+                   "id": entry.id,
+                   "description": entry.description || "",
+                   "duration": entry.duration,
+                   "start": entry.start,
+                   "project": projName,
+                   "c" : color
+                 },
+                retries)
+    } else {
+      sendToPeer("entry-stop", null)
+    }
+}
+
+
 function startEntry(entry) {
   let te, p, c;
   if (!!entry) {
-    te = findById(entry.id, userData.data.time_entries);
+    te = findById(entry.id, userData.time_entries);
   }
   Api.startEntry(te).then(function(data) {
-    if (messaging.peerSocket.readyState === messaging.peerSocket.OPEN) {
-      var entry = JSON.parse(data);
-      var obj = {
-        "type": "current-entry",
-        "data": {
-          "id": entry.id,
-          "description": entry.description || "",
-          "duration": entry.duration,
-          "start": entry.start
-        }
-      }
-      if (!!entry) {
-        p = findById(entry.pid, userData.data.projects);
-        if (!!p) {
-          c = p.hex_color;
-          p = p.name;
-        } else {
-          p = "";
-        }
-        obj.data.project = p;
-      }
-
-      if (!!c) {
-        obj.data.c = c;
-      }
-      messaging.peerSocket.send(JSON.stringify(obj));
-    }
+    sendCurrentEntry(JSON.parse(data));
   }).catch(function (e) {
-    console.log("error");
-    console.log(e)
-
-    var obj = {
-      "type": "error",
-      "data": {
-        "message": apiError
-      }
-    };
-    messaging.peerSocket.send(JSON.stringify(obj));
+    console.log(`Exception: ${e}`);
+    sendToPeer('error', {'message' : apiError})
   });
 }
 
 function stopEntry(entry) {
-
   Api.stopEntry(entry).then(function(data) {
-    var obj = {
-      "type": "entry-stop"
-    };
-    if (messaging.peerSocket.readyState === messaging.peerSocket.OPEN) {
-      messaging.peerSocket.send(JSON.stringify(obj));
-    } else {
-      console.log("Error (stopEntry) - socket not open");
-    }
+    sendToPeer("entry-stop", null)
   }).catch(function (e) {
-    console.log("error");
-    console.log(e)
+    console.log(`Exception: ${e}`);
+    sendToPeer('error', {'message' : apiError})
   });
 }
 
-function getUserData() {
-  var entry = null,
-    entries,
-    p,
-    c;
-  Api.fetchUser().then(function(data) {
-    userData = JSON.parse(data);
-    entries = JSON.parse(data).data.time_entries;
-    if (messaging.peerSocket.readyState === messaging.peerSocket.OPEN) {
-
-
-      if (!!entries) {
-        entry = entries.find(te => te.duration < 0) || null;
-      }
-      var obj = {
-        "type": "current-entry",
-        "data": null
-      };
-
-      if (!!entry) {
-        p = findById(entry.pid, userData.data.projects);
-        if (!!p) {
-          c = p.hex_color;
-          p = p.name;
-        } else {
-          p = "";
-        }
-        obj = {
-          "type": "current-entry",
-          "data": {
-            "id": entry.id,
-            "description": entry.description,
-            "duration": entry.duration,
-            "start": entry.start,
-            "project": p
-          }
-        };
-        if (!!c) {
-          obj.data.c = c;
-        }
-      }
-      messaging.peerSocket.send(JSON.stringify(obj));
-      var d = JSON.parse(data).data;
-
-      setTimeout(function(){
-        generateRecentEntries(d);
-      }, 100);
-
-      setTimeout(function(){
-        calculateSummary();
-      }, 100);
-    }
-  }).catch(function (e) {
-    console.log("error");
-    console.log(e)
-    var obj = {
-      "type": "error",
-      "data": {
-        "message": apiError
-      }
-    };
-    messaging.peerSocket.send(JSON.stringify(obj));
-  });
+function getUserData () {
+  Api.fetchUser().then(data => {
+    userData.info = JSON.parse(data);
+    getTimeEntries();
+  }).catch(e => {
+    console.log(`Exception: ${e}`);
+    sendToPeer('error', {'message' : apiError})
+  })
 }
+
+
+function getTimeEntries () {
+  Api.fetchUser('/time_entries').then(data => {
+    userData.time_entries = JSON.parse(data);
+    getProjects();
+  }).catch (e => {
+    console.log(`Exception: ${e}`);
+    sendToPeer('error', {'message' : apiError})
+  })
+}
+
+
+function getProjects () {
+  Api.fetchUser('/projects').then(data => {
+    userData.projects = JSON.parse(data)
+    getCurrentEntry()
+    setTimeout(generateRecentEntries, 100)
+    setTimeout(calculateSummary, 100)
+  }).catch (e => {
+    console.log(`Exception: ${e}`);
+    sendToPeer('error', {'message' : apiError})
+  })
+}
+
+
+function getCurrentEntry () {
+  Api.fetchUser('/time_entries/current').then(data => {
+    sendCurrentEntry(JSON.parse(data));
+  }).catch (e => {
+    console.log(`Exception: ${e}`);
+    sendToPeer('error', {'message' : apiError})
+  })
+}
+
 
 // A user changes Settings
 settingsStorage.onchange = evt => {
@@ -170,6 +153,10 @@ settingsStorage.onchange = evt => {
     let data = JSON.parse(evt.newValue);
     Api.setToken(data.name);
     getUserData();
+  } else if (evt.key === "description") {
+  } else {
+    updateDeviceSettings(evt.key,
+                         JSON.parse(settingsStorage.getItem(evt.key)));
   }
 };
 
@@ -187,6 +174,11 @@ function restoreSettings() {
       let data = JSON.parse(settingsStorage.getItem(key))
       Api.setDescription(data.name);
     }
+
+    if (key && key === "trackAfk") {
+        updateDeviceSettings(key,
+                             JSON.parse(settingsStorage.getItem(key)));
+    }
   }
 }
 
@@ -202,14 +194,15 @@ function findById(id, array) {
 }
 
 
-function generateRecentEntries(data) {
-  var entries = data.time_entries,
-    listEntries = [],
+function generateRecentEntries() {
+  var entries = userData.time_entries || [];
+  var listEntries = [],
     numOfEntries = 10,
     i,
     obj,
     te;
 
+  
   var checkUnique = function (te) {
     var j, obj, p;
 
@@ -239,12 +232,12 @@ function generateRecentEntries(data) {
       "d": te.description
     };
 
-    p = findById(te.pid, userData.data.projects);
+    p = findById(te.pid, userData.projects);
 
     if (!!p) {
       obj.p = p.name;
       obj.pid = te.pid;
-      obj.c = p.hex_color;
+      obj.c = p.color;
     }
     listEntries.push(obj);
     return te;
@@ -259,23 +252,9 @@ function generateRecentEntries(data) {
     }
   }
 
-  obj = {
-    "type": "unique",
-    "data": listEntries
-  };
-
-  sendRecentEntries(JSON.stringify(obj));
+  sendToPeer("unique", listEntries, 10)
 }
 
-function sendRecentEntries(data) {
-  if (messaging.peerSocket.readyState === messaging.peerSocket.OPEN) {
-    messaging.peerSocket.send(data);
-  } else {
-    setTimeout(function(){
-      sendRecentEntries(data);      
-    }, 100);
-  }
-}
 
 function calculateSummary() {
   let todaySum = 0;
@@ -285,7 +264,7 @@ function calculateSummary() {
   let dur;
   let p;
   let pname;
-  const timeEntries = userData.data.time_entries || [];
+  const timeEntries = userData.time_entries || [];
 
   const now = new Date();
   now.setHours(0, 0, 0, 0); // Get today's date at midnight for the local timezone
@@ -293,7 +272,7 @@ function calculateSummary() {
   today.setHours(0, 0, 0, 0); // Get today's date at midnight for the local timezone
 
   const getWeekStart = function (d) {
-    const startDay = userData.data.beginning_of_week;
+    const startDay = userData.beginning_of_week;
     const day = d.getDay();
     const diff = d.getDate() - day + (startDay > day ? startDay - 7 : startDay);
     return new Date(d.setDate(diff));
@@ -314,7 +293,7 @@ function calculateSummary() {
       todaySum += dur;
 
       // Today Pie - project name, color, total duration
-      p = findById(entry.pid, userData.data.projects);
+      p = findById(entry.pid, userData.projects);
       pname = "No project";
       if (!!p) {
         pname = p.name;
@@ -340,7 +319,7 @@ function calculateSummary() {
       weekSum += dur;
 
       // Week Pie - project name, color, total duration
-      p = findById(entry.pid, userData.data.projects);
+      p = findById(entry.pid, userData.projects);
       pname = "No project";
       if (!!p) {
         pname = p.name;
@@ -380,25 +359,36 @@ function calculateSummary() {
   weekPie.forEach((element, index) => {
 
   })
-*/
-  if (messaging.peerSocket.readyState === messaging.peerSocket.OPEN) {
-    var obj = {
-      "type": "summary",
-      "data": {
-        today: secToHHMM(todaySum),
-        week: secToHHMM(weekSum),
-        todayPie: {}, //todayPie,
-        weekPie: {} //weekPie
-      }
-    };
-    
-    messaging.peerSocket.send(JSON.stringify(obj));
-  }
-     
+  */
+
+  sendToPeer('summary',
+             {
+               today: secToHHMM(todaySum),
+               week: secToHHMM(weekSum),
+               todayPie: {}, //todayPie,
+               weekPie: {} //weekPie
+             },
+            3);
 }
 
 function secToHHMM(sum) {
   const hours = Math.floor(sum / 3600);
   const minutes = Math.floor((sum % 3600) / 60);
   return hours + 'h ' + minutes + 'm';
+}
+
+function updateDeviceSettings (key, value) {
+  console.log(`Sending settings: ${key} ${value}`);
+  if (messaging.peerSocket.readyState === messaging.peerSocket.OPEN) {
+    var obj = {
+      "type": "settings",
+      "data": {
+          "key": key,
+          "value": value
+      }
+    };
+    
+    messaging.peerSocket.send(JSON.stringify(obj));
+  }
+    
 }

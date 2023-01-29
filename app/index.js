@@ -70,5 +70,10 @@ messaging.peerSocket.onerror = function(err) {
   // Handle any errors
   //ui.updateUI("error");
   console.log("Connection error: " + err.code + " - " + err.message);
-  this.updateSyncStatus("error")
+  ui.updateSyncStatus("error");
+}
+
+messaging.peerSocket.onclose = function(ev) {
+  console.log("Connection closed: " + ev.code + " - " + ev.reason);
+  ui.updateSyncStatus("error");
 }
