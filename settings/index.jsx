@@ -11,12 +11,16 @@ function mySettings(props) {
         />
       </Section>
       <Section
-        description={<Text>Setup the default description that is used when you start timer from TogglBit</Text>}
+        description={<Text>Application preferences</Text>}
         title={<Text bold align="center">Preferences</Text>}>
         <TextInput
-          label="Default Time entry description"
+          label="Default time entry description"
           settingsKey="description"
           placeholder="description"
+        />
+        <Toggle
+            settingsKey="trackAfk"
+            label="Detect AFK"
         />
       </Section>
     </Page>

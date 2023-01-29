@@ -28,6 +28,7 @@ const battIcon = document.getElementById("batt");
 const logText  = document.getElementById("log");
 
 var hrm = null;
+var settings = {};
 
 export function UI() {
   this.circle = document.getElementById("circle");
@@ -68,7 +69,9 @@ export function UI() {
 
 UI.prototype.updateUI = function(data) {
   //console.log("updateUI");
-  if (data.type === "current-entry") {
+  if (data.type === "settings") {
+    this.updateSettings(data.data.key, data.data.value);
+  } if (data.type === "current-entry") {
     this.updateNotification(null);
     this.updateTimer(data.data);
     this.updateSyncStatus("ok")
@@ -85,6 +88,11 @@ UI.prototype.updateUI = function(data) {
     this.updateNotification(data.data.message);
     this.updateSyncStatus("error")
   }
+}
+
+UI.prototype.updateSettings = function(key, value) {
+  console.log(`Setting ${key} now ${value}`);
+  settings[key] = value;
 }
 
 UI.prototype.updateNotification = function(message) {
@@ -266,7 +274,7 @@ function updateBatt (evt) {
   if (charger.connected) {
     battIcon.href="images/batt_charging.png"
   } else {
-    let charge = Math.ceil(battery.chargeLevel / 25) * 25;
+    let charge = Math.round(battery.chargeLevel / 25) * 25;
     battIcon.href = `images/batt_${charge}.png`;
   }
 }
@@ -341,15 +349,15 @@ if (HeartRateSensor) {
     lastSteps = steps;
     lastHr = hr;
 
-    console.log(`Steps ${steps} counter ${counter} hr ${hr}`);
+    //console.log(`Steps ${steps} counter ${counter} hr ${hr}`);
     
   });
 } 
 
 function hrmToggle (on) {
-  console.log(`Toggle hrm: ${on}`);
+  //console.log(`Toggle hrm: ${on} afkDetection is ${!!settings["trackAfk"]}`);
   if (!!hrm) {
-    if (on) {
+    if (on && !!settings["trackAfk"]) {
       hrm.start();
     } else {
       hrm.stop();

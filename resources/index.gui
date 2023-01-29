@@ -78,7 +78,7 @@
           <text id="time" x="0%" y="0" font-size="32" fill="white"></text>
           <text id="date" x="0%" y="30" font-size="32" fill="white"></text>
           <text id="dow"  x="0%" y="52" font-size="22" fill="white"></text>
-          <image id="batt" width="30" height="22" x="2" y="58" href="images/batt_charging.png" />
+          <image id="batt" width="27" height="22" x="2" y="58" href="images/batt_charging.png" />
           <text id="log" x="0" y="$+10" font-size="12" fill="white"></text>
         </section>
 
