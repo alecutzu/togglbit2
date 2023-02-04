@@ -46,7 +46,7 @@ API.prototype.fetchUser = function(sub = "") {
   return new Promise(function(resolve, reject) {
     let url = ApiUrl + "/me" + sub;
 
-    console.log(`API: URL is ${url}`);
+    //console.log(`API: URL is ${url}`);
     
     var obj = {  
       method: 'GET',

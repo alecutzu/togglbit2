@@ -7,28 +7,31 @@ import * as messaging from "messaging";
 import { UI } from "./ui.js";
 
 console.log("App code started");
-let ui = new UI();
+
+function sendToPeer (type, data, retries = 0) {
+  if (messaging.peerSocket.readyState === messaging.peerSocket.OPEN) {
+    messaging.peerSocket.send({ "type" : type, "data" : data })
+    console.log(`Enqueued a ${type} message, buffer now ${messaging.peerSocket.bufferedAmount}.`)
+  } else if (retries > 0) {
+    setTimeout(function() { sendToPeer(type, data, retries - 1) },
+               100);
+  } else {
+    console.log(`Dropping ${type}, peer socket not ready.`)
+  }
+}
+
+let ui = new UI(sendToPeer);
 
 ui.rect.onclick = function(e) {
-  console.log("click UI STATUS");
-  console.log(JSON.stringify(ui.entry))
-  if (messaging.peerSocket.readyState === messaging.peerSocket.OPEN) {
-    var obj = {
-      "type": (!!ui.entry) ? "stop": "start",
-      "data": ui.entry
-    };
-
-    messaging.peerSocket.send(obj);
-  }
+  //console.log("click UI STATUS");
+  console.log(JSON.stringify(ui.activeEntry()))
+  sendToPeer(ui.timerRunning() ? "stop": "start",
+             ui.activeEntry())
 }
 
 ui.syncButton.onclick = function(e) {
   ui.syncSpinner();
-  var obj = {
-    "type": "sync"
-  };
-
-  messaging.peerSocket.send(obj);
+  sendToPeer("sync", null)
 }
 
 let list = document.getElementById("entries-list");
@@ -37,13 +40,13 @@ let items = list.getElementsByClassName("item");
 items.forEach((element, index) => {
   let touch = element.getElementById("touch-me");
   touch.onclick = (evt) => {
-    console.log(`touched: ${index}`);
+    //console.log(`touched: ${index}`);
     if (messaging.peerSocket.readyState === messaging.peerSocket.OPEN) {
-      console.log("index: " + index);
-      console.log(JSON.stringify(ui.recentEntries));
-      console.log("--------------------------------------");
-      console.log(JSON.stringify((ui.recentEntries[index])))
-      messaging.peerSocket.send(ui.recentEntries[index]);
+      //console.log("index: " + index);
+      //console.log(JSON.stringify(ui.recentEntries));
+      //console.log("--------------------------------------");
+      //console.log(JSON.stringify((ui.recentEntries[index])))
+      sendToPeer("start", ui.recentEntries[index]);
       ui.switchTo(0);
     }
   }
@@ -52,17 +55,14 @@ items.forEach((element, index) => {
 // Listen for the onopen event
 messaging.peerSocket.onopen = function() {
 //  ui.updateUI("loading");
-  console.log("HI CONNECTJK ");
+  console.log("UI CONNECTJK ");
 //  messaging.peerSocket.send("Hi!");
 }
 
 // Listen for the onmessage event
 messaging.peerSocket.onmessage = function(evt) {
-  console.log("UI onmessage");
+  //console.log(`UI onmessage ${evt.data}`);
   ui.updateUI(JSON.parse(evt.data));
-  console.log(evt.data);
-  if (!!JSON.parse(evt.data).data)
-    console.log(JSON.parse(evt.data).data.description);
 }
 
 // Listen for the onerror event

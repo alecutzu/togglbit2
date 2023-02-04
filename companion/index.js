@@ -21,14 +21,16 @@ messaging.peerSocket.onopen = function() {
 // Listen for the onmessage event
 messaging.peerSocket.onmessage = function(evt) {
   // Output the message to the console
-  //console.log("COMPANION MESSAGE");
-  //console.log(JSON.stringify(evt.data));
+  console.log("COMPANION MESSAGE");
+  console.log(JSON.stringify(evt.data));
   if (evt.data.type === "stop") {
     stopEntry(evt.data.data)
   } else if (evt.data.type === "sync") {
     getUserData();
+  } else if (evt.data.type === "start") {
+    startEntry(evt.data.data);
   } else {
-    startEntry(evt.data);
+    console.log(`Invalid message ${JSON.stringify(evt.data)}`);
   }
 }
 
@@ -81,11 +83,16 @@ function sendCurrentEntry (entry, retries = 0) {
 
 function startEntry(entry) {
   let te, p, c;
+
   if (!!entry) {
     te = findById(entry.id, userData.time_entries);
   }
+
+  //console.log(`Entry id ${entry.id} entry found: ${JSON.stringify(te)}`)
   Api.startEntry(te).then(function(data) {
-    sendCurrentEntry(JSON.parse(data));
+    let ne = JSON.parse(data)
+    userData.time_entries.push(ne)
+    sendCurrentEntry(ne)
   }).catch(function (e) {
     console.log(`Exception: ${e}`);
     sendToPeer('error', {'message' : apiError})
@@ -164,18 +171,19 @@ settingsStorage.onchange = evt => {
 function restoreSettings() {
   for (let index = 0; index < settingsStorage.length; index++) {
     let key = settingsStorage.key(index);
-    if (key && key === "token") {
+    if (key && key === "token")
+    {
       // We already have a token, get it
       let data = JSON.parse(settingsStorage.getItem(key))
       Api.setToken(data.name);
     }
-    if (key && key === "description") {
-      // We already have a token, get it
+    else if (key && key === "description")
+    {
       let data = JSON.parse(settingsStorage.getItem(key))
       Api.setDescription(data.name);
     }
-
-    if (key && key === "trackAfk") {
+    else if (key)
+    {
         updateDeviceSettings(key,
                              JSON.parse(settingsStorage.getItem(key)));
     }
@@ -193,6 +201,11 @@ function findById(id, array) {
   return undefined;
 }
 
+
+function strcmp (a, b) {
+  return a < b ? -1 :
+         a > b ?  1 : 0;
+}
 
 function generateRecentEntries() {
   var entries = userData.time_entries || [];
