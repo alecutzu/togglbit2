@@ -65,11 +65,10 @@ export function UI(sp) {
   this.dayPies = [];
   this.dayPies = document.getElementsByClassName("total-pie-day");
 
-/*
+
   // Summary Week Pies
   this.weekPies = [];
   this.weekPies = document.getElementsByClassName("total-pie-week");
-*/
 
 }
 
@@ -426,7 +425,7 @@ function pomodoroToggleTracking (on) {
 
 
 function pomodoroBreak () {
-  vibration.start("nudge");
+  vibration.start("nudge-max");
   DIA.DialogShow2("Break time!",
                   [{'label': "OK",
                     'fun':   () => {
@@ -452,7 +451,7 @@ function pomodoroBreak () {
 }
 
 function pomodoroFocus () {
-  vibration.start("nudge");
+  vibration.start("nudge-max");
   DIA.DialogShow2("Focus time!",
                   [{'label': "OK",
                     'fun':   () => {

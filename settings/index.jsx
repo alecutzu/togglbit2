@@ -1,4 +1,26 @@
+function installDefaults (props)
+{
+  let defaults = {
+    "description"  : "Default Activity",
+    "trackAfk"     : true,
+    "pomEn"        : true,
+    "pomFocusMins" : 25,
+    "pomBreakMins" : 5,
+  }
+
+  for (const key in defaults) {
+    let value = defaults[key]
+
+    if (props.settingsStorage.getItem(key) == null) {
+      props.settingsStorage.setItem(key, JSON.stringify(defaults[key]));
+    }
+  }
+}
+
 function mySettings(props) {
+
+  installDefaults (props)
+  
   return (
     <Page>
       <Section

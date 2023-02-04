@@ -285,7 +285,7 @@ function calculateSummary() {
   today.setHours(0, 0, 0, 0); // Get today's date at midnight for the local timezone
 
   const getWeekStart = function (d) {
-    const startDay = userData.beginning_of_week;
+    const startDay = userData.info.beginning_of_week;
     const day = d.getDay();
     const diff = d.getDate() - day + (startDay > day ? startDay - 7 : startDay);
     return new Date(d.setDate(diff));
@@ -378,8 +378,8 @@ function calculateSummary() {
              {
                today: secToHHMM(todaySum),
                week: secToHHMM(weekSum),
-               todayPie: {}, //todayPie,
-               weekPie: {} //weekPie
+               todayPie: todayPie,
+               weekPie: weekPie
              },
             3);
 }
